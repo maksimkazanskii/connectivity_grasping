@@ -1,0 +1,217 @@
+
+##############################################################################
+INDEPENDENT-OBJECT MEMORY SCALING: M=200/400/600/800
+##############################################################################
+==============================================================================
+E4: INDEPENDENT TARGETS, FIXED MEMORY BANKS 200/400/600/800, S/F-MARGIN RETRIEVAL
+==============================================================================
+Pool A: 400 S + 400 F = 800
+Pool B: 400 S + 400 F = 800
+Exploration attempts: 400
+  ordinary CA warm-up: 10
+  memory-assisted exploration: 390
+Exploitation attempts: 400
+Memory during exploitation: YES — historical S/F memory + observed Pool-A outcomes
+Total attempt budget: 800
+Matched topology subsets K (retrieval only): 10
+Library sizes: [200, 400, 600, 800]
+Alpha values: [0.0, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0]
+Fixed memory banks stored before target experiments: M=200, M=400, M=600, M=800
+Target group: independent_targets
+Results directory: results/e4_independent_objects_memory_scaling_margin/attempts_400/independent_targets/seed_2
+Retrieval metric: class-balanced signed nearest-S/F SE(3) margin
+Target objects are independent of ALL memory banks: YES
+
+==============================================================================
+Target 1/200: Loveseat_4307657b2731fd392c37553db37ec752_0.005649057646339869.h5
+  independence verified: target not in memory banks; A∩B=0
+  Pool A: 400 S + 400 F
+  Pool B: 400 S + 400 F
+  metric scales from Pool A only: translation=0.307425, rotation=2.19958
+  seed 2/5: Pool-A successes | Random=201, FPS=168, CA=150
+    final retrieval 1/200: Toilet_ce10e4e0d04c33e7322ed2ef5fc90e25_0.00723861394760314.h5 | A successes=150
+    final retrieval 1/400: Oven_c47347fe34186104ce1c87046f7725cd_0.0006743653816351388.h5 | A successes=150
+    final retrieval 1/600: Oven_c47347fe34186104ce1c87046f7725cd_0.0006743653816351388.h5 | A successes=150
+    final retrieval 1/800: Oven_c47347fe34186104ce1c87046f7725cd_0.0006743653816351388.h5 | A successes=150
+
+==============================================================================
+Target 2/200: Stapler_58a427e5201aa43be00ace8e7c1a5eeb_0.04753355620279188.h5
+  independence verified: target not in memory banks; A∩B=0
+  Pool A: 400 S + 400 F
+  Pool B: 400 S + 400 F
+  metric scales from Pool A only: translation=0.263704, rotation=2.38813
+  seed 2/5: Pool-A successes | Random=205, FPS=168, CA=151
+    final retrieval 1/200: Basket_1625299b6a0ea2ff7649cce35db393a1_0.015346248392984999.h5 | A successes=151
+    final retrieval 1/400: Dresser_8d88e8e4fa47972192777e64c6539781_0.004913128850795213.h5 | A successes=151
+    final retrieval 1/600: Dresser_8d88e8e4fa47972192777e64c6539781_0.004913128850795213.h5 | A successes=151
+    final retrieval 1/800: Dresser_8d88e8e4fa47972192777e64c6539781_0.004913128850795213.h5 | A successes=151
+
+==============================================================================
+Target 3/200: Monitor_45a4d128553abb329bf8498db368caef_0.01375729318143013.h5
+  independence verified: target not in memory banks; A∩B=0
+  Pool A: 400 S + 400 F
+  Pool B: 400 S + 400 F
+  metric scales from Pool A only: translation=0.291348, rotation=2.39432
+  seed 2/5: Pool-A successes | Random=189, FPS=189, CA=154
+    final retrieval 1/200: Plant_f1aadbfe430fb90c7cef46eb9534f172_0.0002415020102033181.h5 | A successes=154
+    final retrieval 1/400: Plant_f1aadbfe430fb90c7cef46eb9534f172_0.0002415020102033181.h5 | A successes=154
+    final retrieval 1/600: ChestOfDrawers_a4667d1193175fed5fceaa39a8353bde_0.006529319362405986.h5 | A successes=154
+    final retrieval 1/800: ChestOfDrawers_a4667d1193175fed5fceaa39a8353bde_0.006529319362405986.h5 | A successes=154
+
+==============================================================================
+Target 4/200: DonutBox_37588f93b937ce1a6776771c8bc4ff9_0.011617281623159722.h5
+  independence verified: target not in memory banks; A∩B=0
+  Pool A: 400 S + 400 F
+  Pool B: 400 S + 400 F
+  metric scales from Pool A only: translation=0.35236, rotation=2.13617
+  seed 2/5: Pool-A successes | Random=192, FPS=173, CA=164
+    final retrieval 1/200: Sectional_d8de84e7c0f8cbb19473aab1da686220_0.0022679374966955153.h5 | A successes=164
+    final retrieval 1/400: Sectional_d8de84e7c0f8cbb19473aab1da686220_0.0022679374966955153.h5 | A successes=164
+    final retrieval 1/600: Sectional_d8de84e7c0f8cbb19473aab1da686220_0.0022679374966955153.h5 | A successes=164
+    final retrieval 1/800: Sectional_d8de84e7c0f8cbb19473aab1da686220_0.0022679374966955153.h5 | A successes=164
+
+==============================================================================
+Target 5/200: ToyFigure_3ba8803f914ac8d767ff608a5fbe6aa8_0.0034366994172005437.h5
+  independence verified: target not in memory banks; A∩B=0
+  Pool A: 400 S + 400 F
+  Pool B: 400 S + 400 F
+  metric scales from Pool A only: translation=0.199924, rotation=2.40836
+  seed 2/5: Pool-A successes | Random=206, FPS=196, CA=190
+    final retrieval 1/200: Bag_b914f95b191ad7c27f91c3974257b780_0.012715081291695372.h5 | A successes=190
+    final retrieval 1/400: Bag_b914f95b191ad7c27f91c3974257b780_0.012715081291695372.h5 | A successes=190
+    final retrieval 1/600: Bag_b914f95b191ad7c27f91c3974257b780_0.012715081291695372.h5 | A successes=190
+    final retrieval 1/800: Bag_b914f95b191ad7c27f91c3974257b780_0.012715081291695372.h5 | A successes=190
+
+==============================================================================
+Target 6/200: WallUnit_9b298fa03232e1c29daeea1362fbd792_0.004382717752803528.h5
+  independence verified: target not in memory banks; A∩B=0
+  Pool A: 400 S + 400 F
+  Pool B: 400 S + 400 F
+  metric scales from Pool A only: translation=0.252656, rotation=2.3316
+  seed 2/5: Pool-A successes | Random=204, FPS=190, CA=182
+    final retrieval 1/200: ChestOfDrawers_993675648a0f1b1a9a87002a4eeaf610_0.004260345387063292.h5 | A successes=182
+    final retrieval 1/400: WallUnit_47cb4740e2e0cb8d11bf24e88933ed8f_0.006044840402998047.h5 | A successes=182
+    final retrieval 1/600: WallUnit_47cb4740e2e0cb8d11bf24e88933ed8f_0.006044840402998047.h5 | A successes=182
+    final retrieval 1/800: ChestOfDrawers_3ee02ae42082a4d376a2788017b16c37_0.003440654220673018.h5 | A successes=182
+
+==============================================================================
+Target 7/200: Fruit_f6e6117261dca163713c042b393cc65b_0.028772694488605588.h5
+  independence verified: target not in memory banks; A∩B=0
+  Pool A: 400 S + 400 F
+  Pool B: 400 S + 400 F
+  metric scales from Pool A only: translation=0.198713, rotation=2.49558
+  seed 2/5: Pool-A successes | Random=219, FPS=181, CA=183
+    final retrieval 1/200: ChestOfDrawers_dc02df9956ba5e59738e43095496b061_0.012274501035150402.h5 | A successes=183
+    final retrieval 1/400: Fan_106d2b545cadbbba005531e2f53712_4.682848278497934e-05.h5 | A successes=183
+    final retrieval 1/600: Fan_106d2b545cadbbba005531e2f53712_4.682848278497934e-05.h5 | A successes=183
+    final retrieval 1/800: Fan_106d2b545cadbbba005531e2f53712_4.682848278497934e-05.h5 | A successes=183
+
+==============================================================================
+Target 8/200: PS3_8b59b07b341f4f8f5d2f6d904a2a0784_0.011154171343734014.h5
+  independence verified: target not in memory banks; A∩B=0
+  Pool A: 400 S + 400 F
+  Pool B: 400 S + 400 F
+  metric scales from Pool A only: translation=0.236266, rotation=2.56029
+  seed 2/5: Pool-A successes | Random=210, FPS=174, CA=151
+    final retrieval 1/200: Dresser_7fa4f8f1861b09b8d6b7533e3a2167cd_0.002866454605196335.h5 | A successes=151
+    final retrieval 1/400: Dresser_7fa4f8f1861b09b8d6b7533e3a2167cd_0.002866454605196335.h5 | A successes=151
+    final retrieval 1/600: Cabinet_bd22c8624505770d523bf510e7e65b0d_0.0042132876748569945.h5 | A successes=151
+    final retrieval 1/800: Speaker_101354f9d8dede686f7b08d9de913afe_0.0030139396133486364.h5 | A successes=151
+
+==============================================================================
+Target 9/200: PersonStanding_1a0710af081df737c50a037462bade42_0.004862343859188312.h5
+  independence verified: target not in memory banks; A∩B=0
+  Pool A: 400 S + 400 F
+  Pool B: 400 S + 400 F
+  metric scales from Pool A only: translation=0.250441, rotation=2.34702
+  seed 2/5: Pool-A successes | Random=201, FPS=174, CA=180
+    final retrieval 1/200: ChestOfDrawers_d5dfa7ba7d587fa7cc77a85ce16f6c28_0.008964356383820801.h5 | A successes=180
+    final retrieval 1/400: ChestOfDrawers_d5dfa7ba7d587fa7cc77a85ce16f6c28_0.008964356383820801.h5 | A successes=180
+    final retrieval 1/600: ChestOfDrawers_d5dfa7ba7d587fa7cc77a85ce16f6c28_0.008964356383820801.h5 | A successes=180
+    final retrieval 1/800: ChestOfDrawers_d5dfa7ba7d587fa7cc77a85ce16f6c28_0.008964356383820801.h5 | A successes=180
+
+==============================================================================
+Target 10/200: Book_fd1843119c00bec7a4e3429ccb8eaf16_0.0020533042067726426.h5
+  independence verified: target not in memory banks; A∩B=0
+  Pool A: 400 S + 400 F
+  Pool B: 400 S + 400 F
+  metric scales from Pool A only: translation=0.226321, rotation=2.42559
+  seed 2/5: Pool-A successes | Random=214, FPS=156, CA=101
+    final retrieval 1/200: TissueBox_b11db9eeac44be0550d1fe15308b63aa_0.0023887210158800927.h5 | A successes=101
+    final retrieval 1/400: Gamecube_f732c387a9edad30998b772595cc99e5_0.00035146207976436295.h5 | A successes=101
+    final retrieval 1/600: Gamecube_f732c387a9edad30998b772595cc99e5_0.00035146207976436295.h5 | A successes=101
+    final retrieval 1/800: Gamecube_f732c387a9edad30998b772595cc99e5_0.00035146207976436295.h5 | A successes=101
+
+==============================================================================
+Target 11/200: Headphones_6bf1559769018cbb354b166143712fb3_0.0009263775218084643.h5
+  independence verified: target not in memory banks; A∩B=0
+  Pool A: 400 S + 400 F
+  Pool B: 400 S + 400 F
+  metric scales from Pool A only: translation=0.1968, rotation=2.32528
+  seed 2/5: Pool-A successes | Random=200, FPS=179, CA=172
+    final retrieval 1/200: Nightstand_5fb4aed986cb9d3fffd5817f210f277d_0.010480790861224363.h5 | A successes=172
+    final retrieval 1/400: Nightstand_5fb4aed986cb9d3fffd5817f210f277d_0.010480790861224363.h5 | A successes=172
+    final retrieval 1/600: Sideboard_25ed0233d292deb413cf34dbb0dd8875_0.005643846379123704.h5 | A successes=172
+    final retrieval 1/800: Sideboard_25ed0233d292deb413cf34dbb0dd8875_0.005643846379123704.h5 | A successes=172
+
+==============================================================================
+Target 12/200: EndTable_2362ec480b3e9baa4fd5721982c508ad_0.008838248551483251.h5
+  independence verified: target not in memory banks; A∩B=0
+  Pool A: 400 S + 400 F
+  Pool B: 400 S + 400 F
+  metric scales from Pool A only: translation=0.324945, rotation=2.33531
+  seed 2/5: Pool-A successes | Random=199, FPS=172, CA=160
+    final retrieval 1/200: Basket_1625299b6a0ea2ff7649cce35db393a1_0.015346248392984999.h5 | A successes=160
+    final retrieval 1/400: EndTable_e01e415ba7873c67d810b14a81e12eca_0.012000922834626612.h5 | A successes=160
+    final retrieval 1/600: EndTable_e01e415ba7873c67d810b14a81e12eca_0.012000922834626612.h5 | A successes=160
+    final retrieval 1/800: EndTable_e01e415ba7873c67d810b14a81e12eca_0.012000922834626612.h5 | A successes=160
+
+==============================================================================
+Target 13/200: Vase_aeb38b405aedf355be73768c654c5bcd_0.002849312063675788.h5
+  independence verified: target not in memory banks; A∩B=0
+  Pool A: 400 S + 400 F
+  Pool B: 400 S + 400 F
+  metric scales from Pool A only: translation=0.243887, rotation=2.1897
+  seed 2/5: Pool-A successes | Random=188, FPS=149, CA=174
+    final retrieval 1/200: Dresser_7fa4f8f1861b09b8d6b7533e3a2167cd_0.002866454605196335.h5 | A successes=174
+    final retrieval 1/400: Dresser_7fa4f8f1861b09b8d6b7533e3a2167cd_0.002866454605196335.h5 | A successes=174
+    final retrieval 1/600: Dresser_7fa4f8f1861b09b8d6b7533e3a2167cd_0.002866454605196335.h5 | A successes=174
+    final retrieval 1/800: Dresser_7fa4f8f1861b09b8d6b7533e3a2167cd_0.002866454605196335.h5 | A successes=174
+
+==============================================================================
+Target 14/200: Mirror_a8bb0882e52d049c35836c728d324152_0.012334252028594745.h5
+  independence verified: target not in memory banks; A∩B=0
+  Pool A: 400 S + 400 F
+  Pool B: 400 S + 400 F
+  metric scales from Pool A only: translation=0.36376, rotation=2.58394
+  seed 2/5: Pool-A successes | Random=201, FPS=175, CA=163
+    final retrieval 1/200: AccentTable_719439f45bc9de7dadbcc9ee28cee4cb_0.011533039274159657.h5 | A successes=163
+    final retrieval 1/400: AccentTable_719439f45bc9de7dadbcc9ee28cee4cb_0.011533039274159657.h5 | A successes=163
+    final retrieval 1/600: AccentTable_719439f45bc9de7dadbcc9ee28cee4cb_0.011533039274159657.h5 | A successes=163
+    final retrieval 1/800: AccentTable_719439f45bc9de7dadbcc9ee28cee4cb_0.011533039274159657.h5 | A successes=163
+
+==============================================================================
+Target 15/200: TrashBin_fc4b4b57709b3384b2c6fbabe4177b0e_0.0028006149432658546.h5
+  independence verified: target not in memory banks; A∩B=0
+  Pool A: 400 S + 400 F
+  Pool B: 400 S + 400 F
+  metric scales from Pool A only: translation=0.158808, rotation=2.33829
+  seed 2/5: Pool-A successes | Random=199, FPS=181, CA=187
+    final retrieval 1/200: Armoire_2164fa23c9aa59196f9e9f74beb7c348_0.002089483321941685.h5 | A successes=187
+    final retrieval 1/400: Armoire_2164fa23c9aa59196f9e9f74beb7c348_0.002089483321941685.h5 | A successes=187
+    final retrieval 1/600: Dresser_9480aa858fd07d67a2783013ce634f2d_0.003566970592728637.h5 | A successes=187
+    final retrieval 1/800: Speaker_e2603611f6d3c661b9b2b9d5b2804865_0.0027698827456008423.h5 | A successes=187
+
+==============================================================================
+Target 16/200: Eraser_1abb4ccbe039353a546ea36237e6eeeb_0.14752319342819614.h5
+  independence verified: target not in memory banks; A∩B=0
+  Pool A: 400 S + 400 F
+  Pool B: 400 S + 400 F
+  metric scales from Pool A only: translation=0.172879, rotation=2.40342
+  seed 2/5: Pool-A successes | Random=198, FPS=189, CA=159
+    final retrieval 1/200: Plant_f1aadbfe430fb90c7cef46eb9534f172_0.0002415020102033181.h5 | A successes=159
+    final retrieval 1/400: Plant_f1aadbfe430fb90c7cef46eb9534f172_0.0002415020102033181.h5 | A successes=159
+    final retrieval 1/600: Plant_f1aadbfe430fb90c7cef46eb9534f172_0.0002415020102033181.h5 | A successes=159
+    final retrieval 1/800: Plant_f1aadbfe430fb90c7cef46eb9534f172_0.0002415020102033181.h5 | A successes=159
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main

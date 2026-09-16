@@ -42,7 +42,7 @@ def distance_matrix_with_reference_scaling(
     dp = np.linalg.norm(
         p[:, None, :] - p[None, :, :],
         axis=-1,
-    )
+        )
 
     # Raw SO(3) geodesic distances for all A+B candidates.
     relative = np.einsum(
@@ -61,7 +61,7 @@ def distance_matrix_with_reference_scaling(
         (trace - 1.0) / 2.0,
         -1.0,
         1.0,
-    )
+        )
 
     dr = np.arccos(cosine)
 
@@ -121,7 +121,7 @@ def distance_matrix_with_reference_scaling(
 #   Pool B (exploitation): 100 success + 100 failure
 #
 # Phase 1:
-#   Random / FPS / Connectivity-aware each make 100 attempts
+#   Random / FPS / Uncertainty / Connectivity-aware each make 100 attempts
 #   using ONLY Pool A.
 #
 # Phase 2:
@@ -270,8 +270,8 @@ def load_two_balanced_pools(
     ]
 
     per_pool_size = (
-        pool_success
-        + pool_failure
+            pool_success
+            + pool_failure
     )
 
     pool_a = np.arange(
@@ -284,7 +284,7 @@ def load_two_balanced_pools(
         per_pool_size,
         2 * per_pool_size,
         dtype=int,
-    )
+        )
 
     return (
         transforms,
@@ -423,6 +423,212 @@ def hidden_connectivity_exploration(
 
 
 # ============================================================
+# PHASE 1: UNCERTAINTY SAMPLING ON POOL A
+# ============================================================
+
+def hidden_uncertainty_exploration(
+        labels,
+        D,
+        candidate_indices,
+        n_attempts,
+        rng,
+        bootstrap=5,
+):
+    """
+    Outcome-aware uncertainty sampling restricted to Pool A.
+
+    After the same random-bootstrap size used by connectivity-aware
+    exploration, select candidates closest to the current empirical
+    success/failure boundary.
+
+    For each unqueried candidate x:
+
+        d_success(x) = min distance to an observed success
+        d_failure(x) = min distance to an observed failure
+
+        U(x) = - |d_success(x) - d_failure(x)|
+               / (d_success(x) + d_failure(x) + tiny)
+
+    The candidate with maximum U(x) is queried next.
+
+    If only one outcome class has been observed, choose the candidate
+    farthest from the observed set until both classes are available.
+
+    Hidden labels are revealed only after querying.
+    """
+    candidate_indices = np.asarray(
+        candidate_indices,
+        dtype=int,
+    )
+
+    if n_attempts > len(candidate_indices):
+        raise ValueError(
+            f"n_attempts={n_attempts} exceeds "
+            f"exploration-pool size "
+            f"{len(candidate_indices)}."
+        )
+
+    available = np.zeros(
+        len(labels),
+        dtype=bool,
+    )
+
+    available[
+        candidate_indices
+    ] = True
+
+    queried = []
+    successful = []
+    failed = []
+
+    bootstrap_size = min(
+        bootstrap,
+        n_attempts,
+    )
+
+    # Random bootstrap.
+    for _ in range(
+            bootstrap_size
+    ):
+        candidates = np.flatnonzero(
+            available
+        )
+
+        chosen = int(
+            rng.choice(
+                candidates
+            )
+        )
+
+        queried.append(
+            chosen
+        )
+
+        available[
+            chosen
+        ] = False
+
+        if labels[chosen] == 1:
+            successful.append(
+                chosen
+            )
+        else:
+            failed.append(
+                chosen
+            )
+
+    tiny = 1e-12
+
+    while len(queried) < n_attempts:
+
+        candidates = np.flatnonzero(
+            available
+        )
+
+        if (
+                len(successful) > 0
+                and
+                len(failed) > 0
+        ):
+            d_success = D[
+                np.ix_(
+                    candidates,
+                    np.asarray(
+                        successful,
+                        dtype=int,
+                    ),
+                )
+            ].min(
+                axis=1
+            )
+
+            d_failure = D[
+                np.ix_(
+                    candidates,
+                    np.asarray(
+                        failed,
+                        dtype=int,
+                    ),
+                )
+            ].min(
+                axis=1
+            )
+
+            uncertainty = (
+                    -np.abs(
+                        d_success
+                        - d_failure
+                    )
+                    /
+                    (
+                            d_success
+                            + d_failure
+                            + tiny
+                    )
+            )
+
+            chosen = int(
+                candidates[
+                    np.argmax(
+                        uncertainty
+                    )
+                ]
+            )
+
+        else:
+            observed = np.asarray(
+                queried,
+                dtype=int,
+            )
+
+            if len(observed) == 0:
+                chosen = int(
+                    rng.choice(
+                        candidates
+                    )
+                )
+            else:
+                nearest_observed = D[
+                    np.ix_(
+                        candidates,
+                        observed,
+                    )
+                ].min(
+                    axis=1
+                )
+
+                chosen = int(
+                    candidates[
+                        np.argmax(
+                            nearest_observed
+                        )
+                    ]
+                )
+
+        queried.append(
+            chosen
+        )
+
+        available[
+            chosen
+        ] = False
+
+        if labels[chosen] == 1:
+            successful.append(
+                chosen
+            )
+        else:
+            failed.append(
+                chosen
+            )
+
+    return np.asarray(
+        queried,
+        dtype=int,
+    )
+
+
+# ============================================================
 # PHASE 2: COMMON EXPLOITATION ON UNTOUCHED POOL B
 # ============================================================
 
@@ -471,7 +677,7 @@ def nearest_success_exploitation_order(
     )
 
     if n_attempts > len(
-        exploitation_candidates
+            exploitation_candidates
     ):
         raise ValueError(
             f"n_attempts={n_attempts} exceeds "
@@ -925,8 +1131,8 @@ def discovery_auc(curve):
     return float(
         np.sum(
             0.5 * (
-                y[:-1]
-                + y[1:]
+                    y[:-1]
+                    + y[1:]
             )
         )
     )
@@ -957,10 +1163,10 @@ def maximum_discovery_auc(
     )
 
     return (
-        (s ** 2) / 2.0
-        + s * (
-            k - s
-        )
+            (s ** 2) / 2.0
+            + s * (
+                    k - s
+            )
     )
 
 
@@ -987,10 +1193,10 @@ def normalized_discovery_auc(
         return np.nan
 
     return (
-        discovery_auc(
-            curve
-        )
-        / max_auc
+            discovery_auc(
+                curve
+            )
+            / max_auc
     )
 
 
@@ -1066,7 +1272,7 @@ def save_checkpoints(
         results_dir
         / "exploitation_curves.csv",
         index=False,
-    )
+        )
 
     pd.DataFrame(
         seed_rows
@@ -1074,7 +1280,7 @@ def save_checkpoints(
         results_dir
         / "phase_results_per_seed.csv",
         index=False,
-    )
+        )
 
     pd.DataFrame(
         object_rows
@@ -1082,7 +1288,7 @@ def save_checkpoints(
         results_dir
         / "object_summary.csv",
         index=False,
-    )
+        )
 
     pd.DataFrame(
         selection_rows
@@ -1090,7 +1296,7 @@ def save_checkpoints(
         results_dir
         / "selected_objects.csv",
         index=False,
-    )
+        )
 
 
 # ============================================================
@@ -1178,18 +1384,18 @@ def main():
     args = parser.parse_args()
 
     per_pool_size = (
-        args.pool_success
-        + args.pool_failure
+            args.pool_success
+            + args.pool_failure
     )
 
     combined_pool_size = (
-        2
-        * per_pool_size
+            2
+            * per_pool_size
     )
 
     if (
-        args.exploration_attempts
-        > per_pool_size
+            args.exploration_attempts
+            > per_pool_size
     ):
         raise ValueError(
             "exploration_attempts cannot "
@@ -1197,8 +1403,8 @@ def main():
         )
 
     if (
-        args.exploitation_attempts
-        > per_pool_size
+            args.exploitation_attempts
+            > per_pool_size
     ):
         raise ValueError(
             "exploitation_attempts cannot "
@@ -1213,9 +1419,9 @@ def main():
     #   total A+B = 400 -> results/e3_disjoint_pools_results/pool_400
     #   total A+B = 800 -> results/e3_disjoint_pools_results/pool_800
     results_dir = (
-        Path("results")
-        / "e3_disjoint_pools_results"
-        / f"pool_{combined_pool_size}"
+            Path("results")
+            / "e3_disjoint_pools_results"
+            / f"pool_{combined_pool_size}"
     )
 
     results_dir.mkdir(
@@ -1305,11 +1511,11 @@ def main():
         )
 
         if (
-            n_success
-            >= needed_success
-            and
-            n_failure
-            >= needed_failure
+                n_success
+                >= needed_success
+                and
+                n_failure
+                >= needed_failure
         ):
             eligible.append(
                 path
@@ -1323,9 +1529,9 @@ def main():
             )
 
         if (
-            k % 500 == 0
-            or
-            k == len(paths)
+                k % 500 == 0
+                or
+                k == len(paths)
         ):
             print(
                 f"  scanned {k}/{len(paths)} | "
@@ -1389,7 +1595,7 @@ def main():
     )
 
     print(
-        "Phase-2 policies: Random/FPS use nearest-success; "
+        "Phase-2 policies: Random/FPS/US use nearest-success; "
         "CA uses frozen connectivity-aware ranking."
     )
 
@@ -1590,6 +1796,7 @@ def main():
         methods = [
             "random",
             "fps",
+            "uncertainty",
             "connectivity",
         ]
 
@@ -1612,9 +1819,9 @@ def main():
         ):
 
             base_seed = (
-                args.seed
-                + object_number * 100000
-                + seed_index
+                    args.seed
+                    + object_number * 100000
+                    + seed_index
             )
 
             # ------------------------------------------------
@@ -1657,6 +1864,30 @@ def main():
             ]
 
             # ------------------------------------------------
+            # UNCERTAINTY EXPLORATION -- POOL A
+            # ------------------------------------------------
+
+            uncertainty_rng = (
+                np.random.default_rng(
+                    base_seed
+                    + 2500
+                )
+            )
+
+            uncertainty_explore = (
+                hidden_uncertainty_exploration(
+                    labels=labels,
+                    D=D,
+                    candidate_indices=pool_a,
+                    n_attempts=(
+                        args.exploration_attempts
+                    ),
+                    rng=uncertainty_rng,
+                    bootstrap=args.bootstrap,
+                )
+            )
+
+            # ------------------------------------------------
             # CONNECTIVITY-AWARE EXPLORATION -- POOL A
             # ------------------------------------------------
 
@@ -1687,6 +1918,9 @@ def main():
 
                 "fps":
                     fps_explore,
+
+                "uncertainty":
+                    uncertainty_explore,
 
                 "connectivity":
                     connectivity_explore,
@@ -1821,6 +2055,8 @@ def main():
                 f"{seed_explore_success['random']}, "
                 f"FPS="
                 f"{seed_explore_success['fps']}, "
+                f"US="
+                f"{seed_explore_success['uncertainty']}, "
                 f"CA="
                 f"{seed_explore_success['connectivity']}"
             )
@@ -1832,6 +2068,8 @@ def main():
                 f"{seed_exploit_success['random']}, "
                 f"FPS="
                 f"{seed_exploit_success['fps']}, "
+                f"US="
+                f"{seed_exploit_success['uncertainty']}, "
                 f"CA="
                 f"{seed_exploit_success['connectivity']}"
             )
@@ -1855,7 +2093,7 @@ def main():
 
         # Save mean exploitation curves.
         for method, summary in (
-            summaries.items()
+                summaries.items()
         ):
 
             for step in range(
@@ -1904,6 +2142,14 @@ def main():
             ].mean()
         )
 
+        uncertainty_auc = float(
+            summaries[
+                "uncertainty"
+            ][
+                "aucs"
+            ].mean()
+        )
+
         connectivity_auc = float(
             summaries[
                 "connectivity"
@@ -1928,6 +2174,14 @@ def main():
             ].mean()
         )
 
+        uncertainty_auc_norm = float(
+            summaries[
+                "uncertainty"
+            ][
+                "normalized_aucs"
+            ].mean()
+        )
+
         connectivity_auc_norm = float(
             summaries[
                 "connectivity"
@@ -1941,21 +2195,30 @@ def main():
         # ====================================================
 
         fps_gain_random = (
-            (
-                fps_auc
-                - random_auc
-            )
-            / random_auc
-            * 100.0
+                (
+                        fps_auc
+                        - random_auc
+                )
+                / random_auc
+                * 100.0
+        )
+
+        uncertainty_gain_random = (
+                (
+                        uncertainty_auc
+                        - random_auc
+                )
+                / random_auc
+                * 100.0
         )
 
         ca_gain_random = (
-            (
-                connectivity_auc
-                - random_auc
-            )
-            / random_auc
-            * 100.0
+                (
+                        connectivity_auc
+                        - random_auc
+                )
+                / random_auc
+                * 100.0
         )
 
         # ----------------------------------------------------
@@ -1974,6 +2237,14 @@ def main():
             np.mean(
                 exploration_success_counts[
                     "fps"
+                ]
+            )
+        )
+
+        uncertainty_explore_mean = float(
+            np.mean(
+                exploration_success_counts[
+                    "uncertainty"
                 ]
             )
         )
@@ -1997,6 +2268,14 @@ def main():
         fps_exploit_mean = float(
             summaries[
                 "fps"
+            ][
+                "final_successes"
+            ].mean()
+        )
+
+        uncertainty_exploit_mean = float(
+            summaries[
+                "uncertainty"
             ][
                 "final_successes"
             ].mean()
@@ -2032,6 +2311,9 @@ def main():
             "fps_exploration_successes":
                 fps_explore_mean,
 
+            "uncertainty_exploration_successes":
+                uncertainty_explore_mean,
+
             "connectivity_exploration_successes":
                 connectivity_explore_mean,
 
@@ -2040,6 +2322,9 @@ def main():
 
             "fps_exploitation_successes":
                 fps_exploit_mean,
+
+            "uncertainty_exploitation_successes":
+                uncertainty_exploit_mean,
 
             "connectivity_exploitation_successes":
                 connectivity_exploit_mean,
@@ -2050,6 +2335,9 @@ def main():
             "fps_exploitation_auc":
                 fps_auc,
 
+            "uncertainty_exploitation_auc":
+                uncertainty_auc,
+
             "connectivity_exploitation_auc":
                 connectivity_auc,
 
@@ -2059,11 +2347,17 @@ def main():
             "fps_exploitation_normalized_auc":
                 fps_auc_norm,
 
+            "uncertainty_exploitation_normalized_auc":
+                uncertainty_auc_norm,
+
             "connectivity_exploitation_normalized_auc":
                 connectivity_auc_norm,
 
             "fps_gain_vs_random_percent":
                 fps_gain_random,
+
+            "uncertainty_gain_vs_random_percent":
+                uncertainty_gain_random,
 
             "ca_gain_vs_random_percent":
                 ca_gain_random,
@@ -2077,6 +2371,7 @@ def main():
             f"  Phase-2 AUC: "
             f"Random={random_auc:.1f}, "
             f"FPS={fps_auc:.1f}, "
+            f"US={uncertainty_auc:.1f}, "
             f"CA={connectivity_auc:.1f}"
         )
 
@@ -2084,12 +2379,18 @@ def main():
             f"  Phase-2 normalized AUC: "
             f"Random={random_auc_norm:.4f}, "
             f"FPS={fps_auc_norm:.4f}, "
+            f"US={uncertainty_auc_norm:.4f}, "
             f"CA={connectivity_auc_norm:.4f}"
         )
 
         print(
             f"  FPS phase-2 gain vs Random: "
             f"{fps_gain_random:+.2f}%"
+        )
+
+        print(
+            f"  US phase-2 gain vs Random:  "
+            f"{uncertainty_gain_random:+.2f}%"
         )
 
         print(
@@ -2138,6 +2439,7 @@ def main():
     for method in [
         "random",
         "fps",
+        "uncertainty",
         "connectivity",
     ]:
 
@@ -2145,7 +2447,7 @@ def main():
             seed_df[
                 "method"
             ] == method
-        ]
+            ]
 
         method_summary_rows.append({
             "method":
@@ -2228,9 +2530,40 @@ def main():
 
         "fraction_fps_beats_random":
             (
-                object_df[
-                    "fps_gain_vs_random_percent"
-                ] > 0
+                    object_df[
+                        "fps_gain_vs_random_percent"
+                    ] > 0
+            ).mean(),
+
+        "median_uncertainty_gain_vs_random_percent":
+            object_df[
+                "uncertainty_gain_vs_random_percent"
+            ].median(),
+
+        "q25_uncertainty_gain_vs_random_percent":
+            object_df[
+                "uncertainty_gain_vs_random_percent"
+            ].quantile(
+                0.25
+            ),
+
+        "q75_uncertainty_gain_vs_random_percent":
+            object_df[
+                "uncertainty_gain_vs_random_percent"
+            ].quantile(
+                0.75
+            ),
+
+        "mean_uncertainty_gain_vs_random_percent":
+            object_df[
+                "uncertainty_gain_vs_random_percent"
+            ].mean(),
+
+        "fraction_uncertainty_beats_random":
+            (
+                    object_df[
+                        "uncertainty_gain_vs_random_percent"
+                    ] > 0
             ).mean(),
 
         "median_ca_gain_vs_random_percent":
@@ -2259,9 +2592,9 @@ def main():
 
         "fraction_ca_beats_random":
             (
-                object_df[
-                    "ca_gain_vs_random_percent"
-                ] > 0
+                    object_df[
+                        "ca_gain_vs_random_percent"
+                    ] > 0
             ).mean(),
     }])
 
@@ -2274,7 +2607,7 @@ def main():
         method_summary_df.to_string(
             index=False,
             float_format=lambda x:
-                f"{x:.4f}",
+            f"{x:.4f}",
         )
     )
 
@@ -2287,7 +2620,7 @@ def main():
         gain_summary_df.to_string(
             index=False,
             float_format=lambda x:
-                f"{x:.4f}",
+            f"{x:.4f}",
         )
     )
 
@@ -2296,13 +2629,13 @@ def main():
     # ========================================================
 
     method_summary_path = (
-        results_dir
-        / "method_summary.csv"
+            results_dir
+            / "method_summary.csv"
     )
 
     gain_summary_path = (
-        results_dir
-        / "gain_summary.csv"
+            results_dir
+            / "gain_summary.csv"
     )
 
     method_summary_df.to_csv(
