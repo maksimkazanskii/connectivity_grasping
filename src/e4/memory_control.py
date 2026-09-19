@@ -34,7 +34,7 @@ TOP_RETRIEVED_REFERENCES = 1
 RETRIEVAL_CANDIDATES = 800
 TOP_REFERENCE_ACTIONS = 1
 LIBRARY_SIZES = [200]  # fixed memory library for the retrieval-control experiment
-ALPHAS = [0.0, 0.10, 0.25, 0.50]
+ALPHAS = [0.0, 0.01, 0.03, 0.05, 0.10, 0.25, 0.50, 1.00]
 MEMORY_WARMUP_ATTEMPTS = 10  # ordinary target CA before 1-of-10 memory retrieval
 
 

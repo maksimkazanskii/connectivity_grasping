@@ -14,13 +14,13 @@ POOL_CONFIG = {
 }
 
 METHODS = {
-    "fps": {
-        "label": "FPS",
-        "auc": "fps_exploitation_auc",
+    "nearest": {
+        "label": "Nearest success",
+        "auc": "nearest_exploitation_auc",
     },
-    "uncertainty": {
-        "label": "Uncertainty",
-        "auc": "uncertainty_exploitation_auc",
+    "local": {
+        "label": "Local viability",
+        "auc": "local_exploitation_auc",
     },
     "connectivity": {
         "label": "Connectivity-aware",
@@ -64,29 +64,29 @@ def plot_policy_correlation(
         output_dir,
         n=1600,
 ):
-    """Object-level relationship between Uncertainty and CA gains over Random."""
+    """Object-level relationship between Local-viability and CA gains over Random."""
 
     from scipy.stats import pearsonr, spearmanr
 
     df = results[n]
     random_auc = np.asarray(df[RANDOM_AUC], dtype=float)
 
-    uncertainty_gain = object_gain(
-        df[METHODS["uncertainty"]["auc"]], random_auc
+    local_gain = object_gain(
+        df[METHODS["local"]["auc"]], random_auc
     )
     ca_gain = object_gain(
         df[METHODS["connectivity"]["auc"]], random_auc
     )
 
-    valid = np.isfinite(uncertainty_gain) & np.isfinite(ca_gain)
-    x = uncertainty_gain[valid]
+    valid = np.isfinite(local_gain) & np.isfinite(ca_gain)
+    x = local_gain[valid]
     y = ca_gain[valid]
 
     pearson_r, pearson_p = pearsonr(x, y)
     spearman_rho, spearman_p = spearmanr(x, y)
 
     both_win = np.sum((x > 0) & (y > 0))
-    uncertainty_only = np.sum((x > 0) & (y <= 0))
+    local_only = np.sum((x > 0) & (y <= 0))
     ca_only = np.sum((x <= 0) & (y > 0))
     neither = np.sum((x <= 0) & (y <= 0))
     total = len(x)
@@ -99,7 +99,7 @@ def plot_policy_correlation(
     print(f"Spearman rho = {spearman_rho:+.3f}, p = {spearman_p:.3g}")
     print()
     print(f"Both win        : {both_win:3d}/{total} ({100 * both_win / total:.1f}%)")
-    print(f"Uncertainty only: {uncertainty_only:3d}/{total} ({100 * uncertainty_only / total:.1f}%)")
+    print(f"Local only      : {local_only:3d}/{total} ({100 * local_only / total:.1f}%)")
     print(f"CA only         : {ca_only:3d}/{total} ({100 * ca_only / total:.1f}%)")
     print(f"Neither         : {neither:3d}/{total} ({100 * neither / total:.1f}%)")
 
@@ -111,7 +111,7 @@ def plot_policy_correlation(
     annotation = rf"$r={pearson_r:.2f}$" + "\n" + rf"$\rho={spearman_rho:.2f}$"
     ax.text(0.04, 0.96, annotation, transform=ax.transAxes,
             ha="left", va="top", fontsize=10)
-    ax.set_xlabel("Uncertainty Phase-2 AUC gain over Random (%)")
+    ax.set_xlabel("Local-viability Phase-2 AUC gain over Random (%)")
     ax.set_ylabel("CA Phase-2 AUC gain over Random (%)")
     ax.grid(True, linestyle="--", linewidth=0.6, alpha=0.35, zorder=0)
     fig.tight_layout()
@@ -554,7 +554,7 @@ def plot_gain_distribution(
     )
 
     ax.set_xlabel(
-        "Exploration policy"
+        "Exploitation rule"
     )
 
     # Dashed grid.

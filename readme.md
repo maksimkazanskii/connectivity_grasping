@@ -301,13 +301,3 @@ pip install numpy pandas h5py scipy matplotlib scikit-learn
 ~~~
 
 ---
-
-## Status
-
-| Experiment | Status |
-|---|---|
-| E1 | Implemented |
-| E2 | Implemented |
-| E3 | Implemented |
-| E4 | Implemented / additional controls in progress |
-| Ablations | Implemented |

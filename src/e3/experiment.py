@@ -112,45 +112,24 @@ def distance_matrix_with_reference_scaling(
 
 
 # ============================================================
-# E3: DISJOINT EXPLORE -> EXPLOIT
+# E3: RANDOM EXPLORE -> COMPARE EXPLOITATION RULES
 # ============================================================
 #
-# Per object, construct two DISJOINT hidden-label pools:
-#
-#   Pool A (exploration): 100 success + 100 failure
-#   Pool B (exploitation): 100 success + 100 failure
+# Per object, construct two DISJOINT balanced hidden-label pools.
 #
 # Phase 1:
-#   Random / FPS / Uncertainty / Connectivity-aware each make 100 attempts
-#   using ONLY Pool A.
+#   A single random exploration trajectory is generated on Pool A.
+#   The SAME frozen Phase-1 observations are supplied to every
+#   Phase-2 exploitation rule.
 #
-# Phase 2:
-#   100 attempts using ONLY untouched Pool B.
+# Phase 2 compares four fixed rankings on untouched Pool B:
+#   1) Random: random Pool-B ordering (no Phase-1 information).
+#   2) Nearest-success: ascending distance to a Phase-1 success.
+#   3) Local-viability: nearest-success vs nearest-failure margin.
+#   4) Connectivity: multiscale connectivity-aware success score.
 #
-#   Random / FPS:
-#       rank Pool-B candidates by nearest SE(3) distance to any
-#       successful grasp discovered during Phase 1.
-#
-#   Connectivity-aware:
-#       rank Pool-B candidates with the same multiscale connectivity
-#       acquisition score used in Phase 1, using the FROZEN Phase-1
-#       successful graph.
-#
-# Pool-B successes are evaluated but never become new anchors.
-#
+# Pool-B labels are used only for evaluation and never update rankings.
 # Primary evaluation uses PHASE 2 ONLY.
-#
-# Headline effect sizes:
-#
-#   G_FPS = (A_FPS - A_Random) / A_Random * 100%
-#
-#   G_CA  = (A_CA  - A_Random) / A_Random * 100%
-#
-# where A is the Phase-2 AUC.
-#
-# Because Pool B is untouched during exploration, Phase-2
-# differences reflect the usefulness of information acquired
-# during Phase 1 rather than depletion of easy successes.
 # ============================================================
 
 
@@ -756,6 +735,71 @@ def nearest_success_exploitation_order(
     )
 
 
+def random_exploitation_order(
+        exploitation_candidates,
+        n_attempts,
+        rng,
+):
+    """Random fixed ordering of untouched Pool B."""
+    exploitation_candidates = np.asarray(exploitation_candidates, dtype=int)
+    if n_attempts > len(exploitation_candidates):
+        raise ValueError("n_attempts exceeds exploitation-pool size.")
+    return np.asarray(
+        rng.permutation(exploitation_candidates)[:n_attempts],
+        dtype=int,
+    )
+
+
+def local_viability_exploitation_order(
+        exploration_order,
+        exploitation_candidates,
+        labels,
+        D,
+        n_attempts,
+        rng,
+):
+    """
+    Fixed local success/failure exploitation baseline.
+
+    Uses exactly the same frozen random Phase-1 observations as the
+    connectivity method, but does not construct connected components or
+    average over scales. Candidates are ranked by the normalized nearest-
+    class margin
+
+        (d_failure - d_success) / (d_failure + d_success + tiny),
+
+    so larger values indicate greater local support for success.
+    """
+    exploration_order = np.asarray(exploration_order, dtype=int)
+    exploitation_candidates = np.asarray(exploitation_candidates, dtype=int)
+    if n_attempts > len(exploitation_candidates):
+        raise ValueError("n_attempts exceeds exploitation-pool size.")
+
+    phase1_labels = labels[exploration_order]
+    successful = exploration_order[phase1_labels == 1]
+    failed = exploration_order[phase1_labels == 0]
+
+    if len(successful) == 0:
+        return np.asarray(
+            rng.permutation(exploitation_candidates)[:n_attempts],
+            dtype=int,
+        )
+
+    d_success = D[np.ix_(exploitation_candidates, successful)].min(axis=1)
+
+    if len(failed) == 0:
+        scores = -d_success
+    else:
+        d_failure = D[np.ix_(exploitation_candidates, failed)].min(axis=1)
+        scores = (d_failure - d_success) / (d_failure + d_success + 1e-12)
+
+    local_order = np.argsort(-scores, kind="stable")
+    return np.asarray(
+        exploitation_candidates[local_order[:n_attempts]],
+        dtype=int,
+    )
+
+
 def connectivity_exploitation_order(
         exploration_order,
         exploitation_candidates,
@@ -766,7 +810,7 @@ def connectivity_exploitation_order(
         rng,
 ):
     """
-    Connectivity-aware Phase-2 exploitation for CA only.
+    Common multiscale Phase-2 exploitation used after every Phase-1 policy.
 
     Phase-1 observations are frozen.
 
@@ -1595,8 +1639,8 @@ def main():
     )
 
     print(
-        "Phase-2 policies: Random/FPS/US use nearest-success; "
-        "CA uses frozen connectivity-aware ranking."
+        "Phase 1 uses one shared random trajectory; Phase 2 compares "
+        "Random, nearest-success, local-viability, and connectivity rankings."
     )
 
     print(
@@ -1795,283 +1839,112 @@ def main():
 
         methods = [
             "random",
-            "fps",
-            "uncertainty",
+            "nearest_success",
+            "local_viability",
             "connectivity",
         ]
 
-        exploitation_curves = {
-            method: []
-            for method in methods
-        }
-
-        exploration_success_counts = {
-            method: []
-            for method in methods
-        }
+        exploitation_curves = {method: [] for method in methods}
+        exploration_success_counts = {method: [] for method in methods}
 
         # ====================================================
         # SEEDS
         # ====================================================
-
-        for seed_index in range(
-                args.n_seeds
-        ):
-
-            base_seed = (
-                    args.seed
-                    + object_number * 100000
-                    + seed_index
-            )
+        for seed_index in range(args.n_seeds):
+            base_seed = args.seed + object_number * 100000 + seed_index
 
             # ------------------------------------------------
-            # RANDOM EXPLORATION -- POOL A
+            # PHASE 1: ONE RANDOM EXPLORATION TRAJECTORY
             # ------------------------------------------------
-
-            random_rng = np.random.default_rng(
-                base_seed
-                + 1000
-            )
-
-            random_local_order = random_order(
-                len(pool_a),
-                random_rng,
-            )
-
+            explore_rng = np.random.default_rng(base_seed + 1000)
+            random_local_order = random_order(len(pool_a), explore_rng)
             random_explore = pool_a[
-                random_local_order[
-                    :args.exploration_attempts
-                ]
+                random_local_order[:args.exploration_attempts]
             ]
 
-            # ------------------------------------------------
-            # FPS EXPLORATION -- POOL A
-            # ------------------------------------------------
-
-            fps_rng = np.random.default_rng(
-                base_seed
-                + 2000
+            n_explore_success = int(
+                np.sum(labels[random_explore] == 1)
             )
 
-            fps_local_order = fps_order(
-                D=D_a,
-                max_points=args.exploration_attempts,
-                rng=fps_rng,
+            # Every exploitation rule receives this exact same frozen
+            # Phase-1 trajectory. Thus Phase-2 differences isolate the
+            # exploitation/inference rule rather than exploration policy.
+            exploit_orders = {}
+
+            exploit_orders["random"] = random_exploitation_order(
+                exploitation_candidates=pool_b,
+                n_attempts=args.exploitation_attempts,
+                rng=np.random.default_rng(base_seed + 10000),
             )
 
-            fps_explore = pool_a[
-                fps_local_order
-            ]
-
-            # ------------------------------------------------
-            # UNCERTAINTY EXPLORATION -- POOL A
-            # ------------------------------------------------
-
-            uncertainty_rng = (
-                np.random.default_rng(
-                    base_seed
-                    + 2500
-                )
-            )
-
-            uncertainty_explore = (
-                hidden_uncertainty_exploration(
+            exploit_orders["nearest_success"] = (
+                nearest_success_exploitation_order(
+                    exploration_order=random_explore,
+                    exploitation_candidates=pool_b,
                     labels=labels,
                     D=D,
-                    candidate_indices=pool_a,
-                    n_attempts=(
-                        args.exploration_attempts
-                    ),
-                    rng=uncertainty_rng,
-                    bootstrap=args.bootstrap,
+                    n_attempts=args.exploitation_attempts,
+                    rng=np.random.default_rng(base_seed + 11000),
                 )
             )
 
-            # ------------------------------------------------
-            # CONNECTIVITY-AWARE EXPLORATION -- POOL A
-            # ------------------------------------------------
-
-            connectivity_rng = (
-                np.random.default_rng(
-                    base_seed
-                    + 3000
+            exploit_orders["local_viability"] = (
+                local_viability_exploitation_order(
+                    exploration_order=random_explore,
+                    exploitation_candidates=pool_b,
+                    labels=labels,
+                    D=D,
+                    n_attempts=args.exploitation_attempts,
+                    rng=np.random.default_rng(base_seed + 12000),
                 )
             )
 
-            connectivity_explore = (
-                hidden_connectivity_exploration(
+            exploit_orders["connectivity"] = (
+                connectivity_exploitation_order(
+                    exploration_order=random_explore,
+                    exploitation_candidates=pool_b,
                     labels=labels,
                     D=D,
                     eps_values=eps_values,
-                    candidate_indices=pool_a,
-                    n_attempts=(
-                        args.exploration_attempts
-                    ),
-                    rng=connectivity_rng,
-                    bootstrap=args.bootstrap,
+                    n_attempts=args.exploitation_attempts,
+                    rng=np.random.default_rng(base_seed + 13000),
                 )
             )
 
-            exploration_orders = {
-                "random":
-                    random_explore,
-
-                "fps":
-                    fps_explore,
-
-                "uncertainty":
-                    uncertainty_explore,
-
-                "connectivity":
-                    connectivity_explore,
-            }
-
-            seed_explore_success = {}
             seed_exploit_success = {}
 
-            # ------------------------------------------------
-            # IDENTICAL EXPLOITATION -- POOL B
-            # ------------------------------------------------
-
             for method in methods:
+                exploit_order = exploit_orders[method]
+                exploit_curve = cumulative_success_curve(exploit_order, labels)
+                exploitation_curves[method].append(exploit_curve)
+                exploration_success_counts[method].append(n_explore_success)
 
-                explore_order = (
-                    exploration_orders[
-                        method
-                    ]
-                )
-
-                n_explore_success = int(
-                    np.sum(
-                        labels[
-                            explore_order
-                        ] == 1
-                    )
-                )
-
-                exploration_success_counts[
-                    method
-                ].append(
-                    n_explore_success
-                )
-
-                # Same fallback RNG seed for all methods.
-                # Normally irrelevant because 100 exploration
-                # attempts should almost always discover a success.
-                exploit_rng = np.random.default_rng(
-                    base_seed
-                    + 10000
-                )
-
-                if method == "connectivity":
-                    exploit_order = (
-                        connectivity_exploitation_order(
-                            exploration_order=explore_order,
-                            exploitation_candidates=pool_b,
-                            labels=labels,
-                            D=D,
-                            eps_values=eps_values,
-                            n_attempts=(
-                                args.exploitation_attempts
-                            ),
-                            rng=exploit_rng,
-                        )
-                    )
-                else:
-                    exploit_order = (
-                        nearest_success_exploitation_order(
-                            exploration_order=explore_order,
-                            exploitation_candidates=pool_b,
-                            labels=labels,
-                            D=D,
-                            n_attempts=(
-                                args.exploitation_attempts
-                            ),
-                            rng=exploit_rng,
-                        )
-                    )
-
-                exploit_curve = (
-                    cumulative_success_curve(
-                        exploit_order,
-                        labels,
-                    )
-                )
-
-                exploitation_curves[
-                    method
-                ].append(
-                    exploit_curve
-                )
-
-                n_exploit_success = int(
-                    exploit_curve[-1]
-                )
-
-                seed_explore_success[
-                    method
-                ] = n_explore_success
-
-                seed_exploit_success[
-                    method
-                ] = n_exploit_success
+                n_exploit_success = int(exploit_curve[-1])
+                seed_exploit_success[method] = n_exploit_success
 
                 seed_rows.append({
-                    "object":
-                        path.name,
-
-                    "seed":
-                        seed_index + 1,
-
-                    "method":
-                        method,
-
-                    "exploration_successes":
-                        n_explore_success,
-
-                    "exploitation_successes":
-                        n_exploit_success,
-
-                    "exploitation_auc":
-                        discovery_auc(
-                            exploit_curve
-                        ),
-
-                    "exploitation_normalized_auc":
-                        normalized_discovery_auc(
-                            exploit_curve,
-                            available_successes=(
-                                args.pool_success
-                            ),
-                        ),
+                    "object": path.name,
+                    "seed": seed_index + 1,
+                    "method": method,
+                    "exploration_successes": n_explore_success,
+                    "exploitation_successes": n_exploit_success,
+                    "exploitation_auc": discovery_auc(exploit_curve),
+                    "exploitation_normalized_auc": normalized_discovery_auc(
+                        exploit_curve,
+                        available_successes=args.pool_success,
+                    ),
                 })
 
             print(
-                f"  seed "
-                f"{seed_index + 1}/"
-                f"{args.n_seeds}: "
-                f"explore successes | "
-                f"Random="
-                f"{seed_explore_success['random']}, "
-                f"FPS="
-                f"{seed_explore_success['fps']}, "
-                f"US="
-                f"{seed_explore_success['uncertainty']}, "
-                f"CA="
-                f"{seed_explore_success['connectivity']}"
+                f"  seed {seed_index + 1}/{args.n_seeds}: "
+                f"shared random Phase-1 successes={n_explore_success}"
             )
-
             print(
-                f"               "
-                f"exploit successes | "
-                f"Random="
-                f"{seed_exploit_success['random']}, "
-                f"FPS="
-                f"{seed_exploit_success['fps']}, "
-                f"US="
-                f"{seed_exploit_success['uncertainty']}, "
-                f"CA="
-                f"{seed_exploit_success['connectivity']}"
+                "               exploit successes | "
+                f"Random={seed_exploit_success['random']}, "
+                f"Nearest={seed_exploit_success['nearest_success']}, "
+                f"Local={seed_exploit_success['local_viability']}, "
+                f"CA={seed_exploit_success['connectivity']}"
             )
 
         # ====================================================
@@ -2134,17 +2007,17 @@ def main():
             ].mean()
         )
 
-        fps_auc = float(
+        nearest_auc = float(
             summaries[
-                "fps"
+                "nearest_success"
             ][
                 "aucs"
             ].mean()
         )
 
-        uncertainty_auc = float(
+        local_auc = float(
             summaries[
-                "uncertainty"
+                "local_viability"
             ][
                 "aucs"
             ].mean()
@@ -2166,17 +2039,17 @@ def main():
             ].mean()
         )
 
-        fps_auc_norm = float(
+        nearest_auc_norm = float(
             summaries[
-                "fps"
+                "nearest_success"
             ][
                 "normalized_aucs"
             ].mean()
         )
 
-        uncertainty_auc_norm = float(
+        local_auc_norm = float(
             summaries[
-                "uncertainty"
+                "local_viability"
             ][
                 "normalized_aucs"
             ].mean()
@@ -2194,18 +2067,18 @@ def main():
         # HEADLINE EFFECT SIZES
         # ====================================================
 
-        fps_gain_random = (
+        nearest_gain_random = (
                 (
-                        fps_auc
+                        nearest_auc
                         - random_auc
                 )
                 / random_auc
                 * 100.0
         )
 
-        uncertainty_gain_random = (
+        local_gain_random = (
                 (
-                        uncertainty_auc
+                        local_auc
                         - random_auc
                 )
                 / random_auc
@@ -2233,18 +2106,18 @@ def main():
             )
         )
 
-        fps_explore_mean = float(
+        nearest_explore_mean = float(
             np.mean(
                 exploration_success_counts[
-                    "fps"
+                    "nearest_success"
                 ]
             )
         )
 
-        uncertainty_explore_mean = float(
+        local_explore_mean = float(
             np.mean(
                 exploration_success_counts[
-                    "uncertainty"
+                    "local_viability"
                 ]
             )
         )
@@ -2265,17 +2138,17 @@ def main():
             ].mean()
         )
 
-        fps_exploit_mean = float(
+        nearest_exploit_mean = float(
             summaries[
-                "fps"
+                "nearest_success"
             ][
                 "final_successes"
             ].mean()
         )
 
-        uncertainty_exploit_mean = float(
+        local_exploit_mean = float(
             summaries[
-                "uncertainty"
+                "local_viability"
             ][
                 "final_successes"
             ].mean()
@@ -2305,14 +2178,14 @@ def main():
             "exploitation_attempts":
                 args.exploitation_attempts,
 
-            "random_exploration_successes":
+            "shared_random_exploration_successes":
                 random_explore_mean,
 
-            "fps_exploration_successes":
-                fps_explore_mean,
+            "nearest_success_exploration_successes":
+                nearest_explore_mean,
 
-            "uncertainty_exploration_successes":
-                uncertainty_explore_mean,
+            "local_viability_exploration_successes":
+                local_explore_mean,
 
             "connectivity_exploration_successes":
                 connectivity_explore_mean,
@@ -2320,11 +2193,11 @@ def main():
             "random_exploitation_successes":
                 random_exploit_mean,
 
-            "fps_exploitation_successes":
-                fps_exploit_mean,
+            "nearest_exploitation_successes":
+                nearest_exploit_mean,
 
-            "uncertainty_exploitation_successes":
-                uncertainty_exploit_mean,
+            "local_exploitation_successes":
+                local_exploit_mean,
 
             "connectivity_exploitation_successes":
                 connectivity_exploit_mean,
@@ -2332,11 +2205,11 @@ def main():
             "random_exploitation_auc":
                 random_auc,
 
-            "fps_exploitation_auc":
-                fps_auc,
+            "nearest_exploitation_auc":
+                nearest_auc,
 
-            "uncertainty_exploitation_auc":
-                uncertainty_auc,
+            "local_exploitation_auc":
+                local_auc,
 
             "connectivity_exploitation_auc":
                 connectivity_auc,
@@ -2344,20 +2217,20 @@ def main():
             "random_exploitation_normalized_auc":
                 random_auc_norm,
 
-            "fps_exploitation_normalized_auc":
-                fps_auc_norm,
+            "nearest_exploitation_normalized_auc":
+                nearest_auc_norm,
 
-            "uncertainty_exploitation_normalized_auc":
-                uncertainty_auc_norm,
+            "local_exploitation_normalized_auc":
+                local_auc_norm,
 
             "connectivity_exploitation_normalized_auc":
                 connectivity_auc_norm,
 
-            "fps_gain_vs_random_percent":
-                fps_gain_random,
+            "nearest_gain_vs_random_percent":
+                nearest_gain_random,
 
-            "uncertainty_gain_vs_random_percent":
-                uncertainty_gain_random,
+            "local_gain_vs_random_percent":
+                local_gain_random,
 
             "ca_gain_vs_random_percent":
                 ca_gain_random,
@@ -2370,27 +2243,27 @@ def main():
         print(
             f"  Phase-2 AUC: "
             f"Random={random_auc:.1f}, "
-            f"FPS={fps_auc:.1f}, "
-            f"US={uncertainty_auc:.1f}, "
+            f"Nearest={nearest_auc:.1f}, "
+            f"Local={local_auc:.1f}, "
             f"CA={connectivity_auc:.1f}"
         )
 
         print(
             f"  Phase-2 normalized AUC: "
             f"Random={random_auc_norm:.4f}, "
-            f"FPS={fps_auc_norm:.4f}, "
-            f"US={uncertainty_auc_norm:.4f}, "
+            f"Nearest={nearest_auc_norm:.4f}, "
+            f"Local={local_auc_norm:.4f}, "
             f"CA={connectivity_auc_norm:.4f}"
         )
 
         print(
-            f"  FPS phase-2 gain vs Random: "
-            f"{fps_gain_random:+.2f}%"
+            f"  Nearest phase-2 gain vs Random: "
+            f"{nearest_gain_random:+.2f}%"
         )
 
         print(
-            f"  US phase-2 gain vs Random:  "
-            f"{uncertainty_gain_random:+.2f}%"
+            f"  Local phase-2 gain vs Random:  "
+            f"{local_gain_random:+.2f}%"
         )
 
         print(
@@ -2424,7 +2297,7 @@ def main():
         "=" * 78
     )
     print(
-        "FINAL E3 DISJOINT EXPLORE -> EXPLOIT SUMMARY"
+        "FINAL E3 RANDOM-EXPLORE -> MULTI-EXPLOIT SUMMARY"
     )
     print(
         "=" * 78
@@ -2438,8 +2311,8 @@ def main():
 
     for method in [
         "random",
-        "fps",
-        "uncertainty",
+        "nearest_success",
+        "local_viability",
         "connectivity",
     ]:
 
@@ -2489,7 +2362,7 @@ def main():
     )
 
     # --------------------------------------------------------
-    # Gain summary: FPS vs Random and CA vs Random
+    # Gain summary: Nearest vs Random and CA vs Random
     # --------------------------------------------------------
 
     gain_summary_df = pd.DataFrame([{
@@ -2504,65 +2377,65 @@ def main():
         "exploitation_attempts":
             args.exploitation_attempts,
 
-        "median_fps_gain_vs_random_percent":
+        "median_nearest_gain_vs_random_percent":
             object_df[
-                "fps_gain_vs_random_percent"
+                "nearest_gain_vs_random_percent"
             ].median(),
 
-        "q25_fps_gain_vs_random_percent":
+        "q25_nearest_gain_vs_random_percent":
             object_df[
-                "fps_gain_vs_random_percent"
+                "nearest_gain_vs_random_percent"
             ].quantile(
                 0.25
             ),
 
-        "q75_fps_gain_vs_random_percent":
+        "q75_nearest_gain_vs_random_percent":
             object_df[
-                "fps_gain_vs_random_percent"
+                "nearest_gain_vs_random_percent"
             ].quantile(
                 0.75
             ),
 
-        "mean_fps_gain_vs_random_percent":
+        "mean_nearest_gain_vs_random_percent":
             object_df[
-                "fps_gain_vs_random_percent"
+                "nearest_gain_vs_random_percent"
             ].mean(),
 
-        "fraction_fps_beats_random":
+        "fraction_nearest_beats_random":
             (
                     object_df[
-                        "fps_gain_vs_random_percent"
+                        "nearest_gain_vs_random_percent"
                     ] > 0
             ).mean(),
 
-        "median_uncertainty_gain_vs_random_percent":
+        "median_local_gain_vs_random_percent":
             object_df[
-                "uncertainty_gain_vs_random_percent"
+                "local_gain_vs_random_percent"
             ].median(),
 
-        "q25_uncertainty_gain_vs_random_percent":
+        "q25_local_gain_vs_random_percent":
             object_df[
-                "uncertainty_gain_vs_random_percent"
+                "local_gain_vs_random_percent"
             ].quantile(
                 0.25
             ),
 
-        "q75_uncertainty_gain_vs_random_percent":
+        "q75_local_gain_vs_random_percent":
             object_df[
-                "uncertainty_gain_vs_random_percent"
+                "local_gain_vs_random_percent"
             ].quantile(
                 0.75
             ),
 
-        "mean_uncertainty_gain_vs_random_percent":
+        "mean_local_gain_vs_random_percent":
             object_df[
-                "uncertainty_gain_vs_random_percent"
+                "local_gain_vs_random_percent"
             ].mean(),
 
-        "fraction_uncertainty_beats_random":
+        "fraction_local_beats_random":
             (
                     object_df[
-                        "uncertainty_gain_vs_random_percent"
+                        "local_gain_vs_random_percent"
                     ] > 0
             ).mean(),
 

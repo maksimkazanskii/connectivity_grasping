@@ -6,7 +6,7 @@ Produces exactly two figures for attempts 100, 200, 400 at fixed memory M=200:
 
 1) Heatmap:
    rows    = attempt budget
-   columns = SA+Memory for each alpha, then SA, Random, FPS
+   columns = Random, FPS, SA, then SA+Memory for each alpha
    values  = mean normalized AUC ± 95% CI
 
 2) Ranked per-object gain:
@@ -121,10 +121,10 @@ def transfer_at(obj, memory, alpha):
         x = candidates[["target", "normalized_auc"]].copy()
 
     if x.empty:
-        raise ValueError(f"No SA+Memory rows for M={memory}, alpha={alpha:g}")
+        raise ValueError(f"No CA+Memory rows for M={memory}, alpha={alpha:g}")
     if not x.target.is_unique:
         raise ValueError(
-            f"SA+Memory has duplicate targets for M={memory}, alpha={alpha:g}"
+            f"CA+Memory has duplicate targets for M={memory}, alpha={alpha:g}"
         )
     return x
 
@@ -150,12 +150,12 @@ def load_all(base, attempts):
 def aggregated_heatmap(data, out, memory):
     """
     Rows: attempt budgets.
-    Columns: SA+Memory alpha sweep followed by SA, Random, FPS.
+    Columns: Random, FPS, CA, followed by the CA+Memory alpha sweep.
 
     This keeps M fixed and directly shows how alpha and attempt budget interact,
     while retaining the three attempt-matched baselines.
     """
-    columns = [f"α={a:g}" for a in ALPHAS] + ["SA", "Random", "FPS"]
+    columns = ["Random", "FPS", "CA"] + [f"α={a:g}" for a in ALPHAS]
     z = np.full((len(data), len(columns)), np.nan)
     ci_mat = np.full_like(z, np.nan)
     summary_rows = []
@@ -163,27 +163,12 @@ def aggregated_heatmap(data, out, memory):
     for i, attempts in enumerate(sorted(data)):
         obj = data[attempts]
 
-        for j, alpha in enumerate(ALPHAS):
-            tr = transfer_at(obj, memory, alpha)
-            mean, ci = mean_ci(tr.normalized_auc)
-            z[i, j] = mean
-            ci_mat[i, j] = ci
-            summary_rows.append({
-                "attempts": attempts,
-                "method": "SA+Memory",
-                "memory": memory,
-                "alpha": alpha,
-                "mean_nAUC": mean,
-                "ci95": ci,
-                "N": len(tr),
-            })
-
-        for k, (method, label) in enumerate(
-                [("ca", "SA"), ("random", "Random"), ("fps", "FPS")]
+        # Baselines first: Random, FPS, CA.
+        for j, (method, label) in enumerate(
+                [("random", "Random"), ("fps", "FPS"), ("ca", "CA")]
         ):
             x = baseline(obj, method)
             mean, ci = mean_ci(x.normalized_auc)
-            j = len(ALPHAS) + k
             z[i, j] = mean
             ci_mat[i, j] = ci
             summary_rows.append({
@@ -194,6 +179,24 @@ def aggregated_heatmap(data, out, memory):
                 "mean_nAUC": mean,
                 "ci95": ci,
                 "N": len(x),
+            })
+
+        # Memory-assisted CA alpha sweep.
+        offset = 3
+        for k, alpha in enumerate(ALPHAS):
+            tr = transfer_at(obj, memory, alpha)
+            mean, ci = mean_ci(tr.normalized_auc)
+            j = offset + k
+            z[i, j] = mean
+            ci_mat[i, j] = ci
+            summary_rows.append({
+                "attempts": attempts,
+                "method": "CA+Memory",
+                "memory": memory,
+                "alpha": alpha,
+                "mean_nAUC": mean,
+                "ci95": ci,
+                "N": len(tr),
             })
 
     pd.DataFrame(summary_rows).to_csv(
@@ -208,14 +211,14 @@ def aggregated_heatmap(data, out, memory):
         range(len(data)),
         [str(a) for a in sorted(data)],
     )
-    ax.set_xlabel(r"SA + Memory transfer weight $\alpha$ / baseline")
+    ax.set_xlabel(r"CA + Memory transfer weight $\alpha$ / baseline")
     ax.set_ylabel("Attempts")
     ax.set_title(
         rf"Performance across attempt budgets at fixed memory $M={memory}$"
     )
 
-    # Separate alpha sweep from baselines.
-    ax.axvline(len(ALPHAS) - 0.5, color="black", lw=1.4)
+    # Separate baselines from the alpha sweep.
+    ax.axvline(2.5, color="black", lw=1.4)
 
     finite = z[np.isfinite(z)]
     mid = finite.min() + 0.55 * (finite.max() - finite.min())
@@ -239,7 +242,7 @@ def aggregated_heatmap(data, out, memory):
 def ranked_gain_by_attempts(data, out, memory, alpha):
     """
     Ranked per-object gain for each attempt budget:
-        delta = SA+Memory - SA
+        delta = CA+Memory - CA
 
     Each attempt budget is sorted independently, exactly like the existing
     ranked-per-object plot, but attempts replace memory size as the series.
@@ -309,7 +312,7 @@ def ranked_gain_by_attempts(data, out, memory, alpha):
     ax.set(
         xlim=(0, 100),
         xlabel="Target-object percentile (sorted separately for each attempt budget)",
-        ylabel=r"$\Delta$ nAUC (SA + Memory $-$ SA)",
+        ylabel=r"$\Delta$ nAUC (CA + Memory $-$ CA)",
         title=(
             rf"Ranked per-object memory gain at $M={memory}$, "
             rf"$\alpha={alpha:g}$"
